@@ -89,53 +89,53 @@ class LSTM_simple(nn.Module):
         classScores = F.log_softmax(classNetOutput, dim=1)
         return classScores
 
-    model = LSTM_simple(INPUT_DIMENSION, HIDDEN_DIMENSION, len(wordToIdDictionary), len(tagsIds))
-    # negative log likelihood loss
-    lossFunction = nn.NLLLoss()
-    # stochastic gradient descent with learning rate 0.1
-    optimizer = optim.SGD(model.parameters(), lr=0.1)
+model = LSTM_simple(INPUT_DIMENSION, HIDDEN_DIMENSION, len(wordToIdDictionary), len(tagsIds))
+# negative log likelihood loss
+lossFunction = nn.NLLLoss()
+# stochastic gradient descent with learning rate 0.1
+optimizer = optim.SGD(model.parameters(), lr=0.1)
 
-    # See what the scores are before training
-    # Note that element i,j of the output is the score for tag j for word i.
-    # Here we don't need to train, so the code is wrapped in torch.no_grad()
-    with torch.no_grad():
-        inputs = prepareSequence(trainingData[0][0], wordToIdDictionary)
-        classScores = model(inputs)
-        print("Scores with no training")
-        print(classScores)
+# See what the scores are before training
+# Note that element i,j of the output is the score for tag j for word i.
+# Here we don't need to train, so the code is wrapped in torch.no_grad()
+with torch.no_grad():
+    inputs = prepareSequence(trainingData[0][0], wordToIdDictionary)
+    classScores = model(inputs)
+    print("Scores with no training")
+    print(classScores)
 
-    for epoch in range(200):  # again, normally you would NOT do 300 epochs, it is toy data
-        for sentence, tags in trainingData:
-            # Step 1. Remember that Pytorch accumulates gradients.
-            # We need to clear them out before each instance
-            model.zero_grad()
+for epoch in range(200):  # again, normally you would NOT do 300 epochs, it is toy data
+    for sentence, tags in trainingData:
+        # Step 1. Remember that Pytorch accumulates gradients.
+        # We need to clear them out before each instance
+        model.zero_grad()
 
-            # Step 2. Get our inputs ready for the network, that is, turn them into
-            # Tensors of word indices.
-            sentenceEmbedding = prepareSequence(sentence, wordToIdDictionary)
-            targets = prepareSequence(tags, tagsIds)
+        # Step 2. Get our inputs ready for the network, that is, turn them into
+        # Tensors of word indices.
+        sentenceEmbedding = prepareSequence(sentence, wordToIdDictionary)
+        targets = prepareSequence(tags, tagsIds)
 
-            # Step 3. Run our forward pass.
-            classScores = model(sentenceEmbedding)
+        # Step 3. Run our forward pass.
+        classScores = model(sentenceEmbedding)
 
-            # Step 4. Compute the loss, gradients, and update the parameters by
-            #  calling optimizer.step()
-            loss = lossFunction(classScores, targets)
-            loss.backward()
-            optimizer.step()
+        # Step 4. Compute the loss, gradients, and update the parameters by
+        #  calling optimizer.step()
+        loss = lossFunction(classScores, targets)
+        loss.backward()
+        optimizer.step()
 
-    # See what the scores are after training
-    with torch.no_grad():
-        inputs = prepareSequence(trainingData[0][0], wordToIdDictionary)
-        classScores = model(inputs)
+# See what the scores are after training
+with torch.no_grad():
+    inputs = prepareSequence(trainingData[0][0], wordToIdDictionary)
+    classScores = model(inputs)
 
-        # The sentence is "the dog ate the apple".  i,j corresponds to score for tag j
-        # for word i. The predicted tag is the maximum scoring tag.
-        # Here, we can see the predicted sequence below is 0 1 2 0 1
-        # since 0 is index of the maximum value of row 1,
-        # 1 is the index of maximum value of row 2, etc.
-        # Which is DET NOUN VERB DET NOUN, the correct sequence!
-        print("Scores after training")
-        print(classScores)
-        print("For sentence ")
-        print(trainingData[0][0])
+    # The sentence is "the dog ate the apple".  i,j corresponds to score for tag j
+    # for word i. The predicted tag is the maximum scoring tag.
+    # Here, we can see the predicted sequence below is 0 1 2 0 1
+    # since 0 is index of the maximum value of row 1,
+    # 1 is the index of maximum value of row 2, etc.
+    # Which is DET NOUN VERB DET NOUN, the correct sequence!
+    print("Scores after training")
+    print(classScores)
+    print("For sentence ")
+    print(trainingData[0][0])
