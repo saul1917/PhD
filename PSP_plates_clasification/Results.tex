@@ -1,0 +1,107 @@
+%% LyX 2.3.0 created this file.  For more info, see http://www.lyx.org/.
+%% Do not edit unless you really know what you are doing.
+\documentclass[english]{article}
+\usepackage[T1]{fontenc}
+\usepackage[latin9]{inputenc}
+\usepackage{amstext}
+
+\makeatletter
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% LyX specific LaTeX commands.
+%% Because html converters don't know tabularnewline
+\providecommand{\tabularnewline}{\\}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands.
+\usepackage{tikz}
+\usepackage{pgfplots}
+
+\makeatother
+
+\usepackage{babel}
+\begin{document}
+For the three tested models we measured the validation model accuracy,
+sensitivity (the proportion of true positives over the total predicted
+positives) and specificity (proportion of true negatives over the
+total of predicted negatives), as we aim to analyze the success rate
+of using the model.
+
+Table \ref{tab:Descpritive-statistics-for} summarize the specificity,
+sensitivity and accuracy of the models tested: Inception V3, Resnet50
+and Resnet18, along basic statistical description of the results,
+for the $n=20$ experiments, $k=5$ folds for a total of $i=100$
+observations, yielding $d=100-1=99$ degrees of freedom. For statistical
+analysis reproducibility, we include the \emph{csv }files with the
+experiment results in the github repository. 
+\begin{table}
+\centering{}%
+\begin{tabular}{ccccccc}
+\textbf{Architecture} & $\overline{x}_{\textrm{acc}}$ & $s_{\textrm{acc}}$ & $\overline{x}_{\textrm{sens}}$ & $s_{\textrm{sens}}$ & $\overline{x}_{\textrm{spec}}$ & $s_{\textrm{spec}}$\tabularnewline
+\hline 
+Inception V3 & 88.4 & 1.58 & 86.82 & 3.17 & 87.13 & 3.03\tabularnewline
+Resnet50 & 88.08 & 1.61 & 88.56 & 2.79 & 85.56 & 3.35\tabularnewline
+Resnet18 & 87.39 & 1.55 & 88.79 & 2.99 & 83.57 & 2.91\tabularnewline
+\end{tabular}\caption{Descriptive statistics for the tested deep learning architectures.\label{tab:Descpritive-statistics-for}}
+\end{table}
+
+According to Table \ref{tab:Descpritive-statistics-for}, Inception
+seems to have a slightly better performance, accuracy and specificity
+wise. However, a statistical analysis needs to be performed to ensure
+it is significant. First, we confirmed through a Kolgomorov-Smirnov
+test that the results distribution for the three models, for the accuracy,
+sensitivity and specificity, for all the $i=100$ observations is
+normal. Regarding the obtained accuracy, Figure \ref{fig:Box-plot-for}
+shows the valid box-plot for normally distributed data, which graphically
+depicts the small difference of the obtained results for the three
+models. 
+
+\begin{figure}
+\begin{tikzpicture}
+\begin{axis}[ width=4.4in, height=2.909in, at={(2.08in,0.797in)}, scale only axis, unbounded coords=jump, xmin=0.5, xmax=3.5, xtick={1,2,3}, ymin=0.841649899396378, ymax=0.916901408450704, axis background/.style={fill=white} ] \addplot [color=black, dashed, forget plot]   table[row sep=crcr]{ 1	0.899396378269618\\ 1	0.913480885311871\\ }; \addplot [color=black, dashed, forget plot]   table[row sep=crcr]{  2	0.88933601609658\\ 2	0.903420523138833\\ }; \addplot [color=black, dashed, forget plot]   table[row sep=crcr]{  3	0.88933601609658\\ 3	0.903420523138833\\ }; \addplot [color=black, dashed, forget plot]   table[row sep=crcr]{  1	0.857142857142857\\ 1	0.870967741935484\\ }; \addplot [color=black, dashed, forget plot]   table[row sep=crcr]{  2	0.845070422535211\\ 2	0.860887096774194\\ }; \addplot [color=black, dashed, forget plot]   table[row sep=crcr]{  3	0.845070422535211\\ 3	0.860887096774194\\ }; \addplot [color=black, forget plot]   table[row sep=crcr]{  0.8875	0.913480885311871\\ 1.1125	0.913480885311871\\ }; \addplot [color=black, forget plot]   table[row sep=crcr]{  1.8875	0.903420523138833\\ 2.1125	0.903420523138833\\ }; \addplot [color=black, forget plot]   table[row sep=crcr]{  2.8875	0.903420523138833\\ 3.1125	0.903420523138833\\ }; \addplot [color=black, forget plot]   table[row sep=crcr]{  0.8875	0.857142857142857\\ 1.1125	0.857142857142857\\ }; \addplot [color=black, forget plot]   table[row sep=crcr]{  1.8875	0.845070422535211\\ 2.1125	0.845070422535211\\ }; \addplot [color=black, forget plot]   table[row sep=crcr]{  2.8875	0.845070422535211\\ 3.1125	0.845070422535211\\ }; \addplot [color=blue, forget plot]   table[row sep=crcr]{  0.8875	0.883299798792757\\ 0.775	0.887763094697216\\ 0.775	0.899396378269618\\ 1.225	0.899396378269618\\ 1.225	0.887763094697216\\ 1.1125	0.883299798792757\\ 1.225	0.878836502888298\\ 1.225	0.870967741935484\\ 0.775	0.870967741935484\\ 0.775	0.878836502888298\\ 0.8875	0.883299798792757\\ }; \addplot [color=blue, forget plot]   table[row sep=crcr]{  1.8875	0.872233400402415\\ 1.775	0.876699880736029\\ 1.775	0.88933601609658\\ 2.225	0.88933601609658\\ 2.225	0.876699880736029\\ 2.1125	0.872233400402415\\ 2.225	0.8677669200688\\ 2.225	0.860887096774194\\ 1.775	0.860887096774194\\ 1.775	0.8677669200688\\ 1.8875	0.872233400402415\\ }; \addplot [color=blue, forget plot]   table[row sep=crcr]{  2.8875	0.872233400402415\\ 2.775	0.876699880736029\\ 2.775	0.88933601609658\\ 3.225	0.88933601609658\\ 3.225	0.876699880736029\\ 3.1125	0.872233400402415\\ 3.225	0.8677669200688\\ 3.225	0.860887096774194\\ 2.775	0.860887096774194\\ 2.775	0.8677669200688\\ 2.8875	0.872233400402415\\ }; \addplot [color=red, forget plot]   table[row sep=crcr]{  0.8875	0.883299798792757\\ 1.1125	0.883299798792757\\ }; \addplot [color=red, forget plot]   table[row sep=crcr]{  1.8875	0.872233400402415\\ 2.1125	0.872233400402415\\ }; \addplot [color=red, forget plot]   table[row sep=crcr]{  2.8875	0.872233400402415\\ 3.1125	0.872233400402415\\ }; \addplot [color=black, draw=none, mark=+, mark options={solid, red}, forget plot]   table[row sep=crcr]{  nan	nan\\ }; \addplot [color=black, draw=none, mark=+, mark options={solid, red}, forget plot]   table[row sep=crcr]{  nan	nan\\ }; \addplot [color=black, draw=none, mark=+, mark options={solid, red}, forget plot]   table[row sep=crcr]{  nan	nan\\ }; \end{axis}
+\begin{axis}[  width=16in, height=7.25in, at={(0in,0in)}, scale only axis, xmin=0, xmax=1, ymin=0, ymax=1, axis line style={draw=none}, ticks=none, axis x line*=bottom, axis y line*=left ] \end{axis} \end{tikzpicture} \caption{Box plot for model accuracies, scaled from 0 to 1.\label{fig:Box-plot-for}}
+\end{figure}
+
+Given the normality of the results for all the models, we proceed
+to perform an ANOVA test. The ANOVA test is performed for the accuracy,
+specificity and sensitivity of the three models. 
+
+\begin{table}
+\begin{centering}
+\begin{tabular}{ccc}
+ & \textbf{Resnet50} & \textbf{Resnet18}\tabularnewline
+\hline 
+Accuracy & 0.1499 (ND) & 7.7891e-06 (+1.01)\tabularnewline
+Sensitivity & 5.4737e-05 (-1.74) & 1.0419e-05 (-1.97)\tabularnewline
+Specificity & 6.1710e-04 (+1.57) & 5.6591e-15 (+3.56)\tabularnewline
+\end{tabular}
+\par\end{centering}
+\caption{Inception V3 ANOVA $p$ value of the results with the models Resnet50
+and Resnet18, and its improvement (+), decrease (-) of performance
+or no difference (ND) with $95\%$ confidence ($p<0.05$).\label{tab:Inception-V3-ANOVA} }
+\end{table}
+Table \ref{tab:Inception-V3-ANOVA} shows how accuracy wise, the Inception
+V3 model presents a signifcantly better performance when compared
+with Resnet18, but not with Resnet50. Inception V3 performs statistically
+significantly worse than Resnet50 and Resnet50. Specificity wise,
+Inception V3 outperforms both models, with also statistical significance,
+by a large margin for the case of Resnet18, which makes up for its
+overall accuracy performance.
+
+\begin{table}
+\begin{centering}
+\begin{tabular}{cc}
+ & \textbf{Resnet18}\tabularnewline
+\hline 
+Accuracy & 0.0023 (+0.69)\tabularnewline
+Sensitivity & 0.5733 (ND)\tabularnewline
+Specificity & 1.2973e-05 (+1.99)\tabularnewline
+\end{tabular}
+\par\end{centering}
+\caption{Resnet50 ANOVA $p$ value of the results with the models Resnet50
+and Resnet18, and its improvement (+), decrease (-) of performance
+or no difference (ND) with $95\%$ confidence ($p<0.05$).\label{tab:Resnet50-V3-ANOVA-1} }
+\end{table}
+
+Finally, Table \ref{tab:Resnet50-V3-ANOVA-1} depicts how Resnet50
+outperforms the Resnet18 model by a modest margin for the accuracy,
+given its statistically equal sensitivity and larger specificity boost. 
+\end{document}

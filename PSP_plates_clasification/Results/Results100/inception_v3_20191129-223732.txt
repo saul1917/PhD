@@ -1,0 +1,1 @@
+Namespace(arch='inception_v3', batch_size=4, cuda=True, data_dir='/media/Data/saul/PSP_dataset/', folder='', image='', k_fold_num=5, lr=0.001, momentum=0.9, num_epochs=7, pretrained=True, random_seed=16031997, save=False, shuffle_dataset=True, train=True, val_mode='k-fold', val_num=20, weights='', workers=4)

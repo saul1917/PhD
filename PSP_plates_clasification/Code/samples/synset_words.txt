@@ -1,0 +1,2 @@
+n01440764 Do_not_discard
+n01443537 Discard

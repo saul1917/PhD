@@ -1,0 +1,14 @@
+#PBS -N iv3_PC_USM
+#PBS -q gpu-n1h72
+#PBS -l nodes=tule-00.cnca:ppn=1
+#PBS -l walltime=72:00:00
+
+#module avail
+#module list
+
+module load cuda/9.0.176
+module load cudnn-9/7.0.4
+module load intelpython/3.5
+
+
+python ~/PyTorch/pksoftmax/main.py
