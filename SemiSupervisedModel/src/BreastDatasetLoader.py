@@ -31,12 +31,16 @@ import copy
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.sampler import Sampler, SubsetRandomSampler
+from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 
 def getTransformationsInBreast():
     """
     Get the transformations for the dataset
     :return:
     """
+    meanDatasetComplete = torch.tensor([0.1779, 0.1779, 0.1779])
+    stdDatasetComplete =  torch.tensor([0.2539, 0.2539, 0.2539])
+
     trainTransformations = transforms.Compose([transforms.Grayscale(3),
                                                 transforms.RandomRotation(20),
                                                transforms.RandomAffine(20, (0.2, 0.2), (0.8, 1.2), 0.2),
@@ -45,16 +49,16 @@ def getTransformationsInBreast():
                                                 transforms.RandomCrop((224,224)),
                                                transforms.Resize((224, 224)),
                                                transforms.ToTensor(),
-                                               transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                                    std=[0.229, 0.224, 0.225])])
+                                               transforms.Normalize(mean = meanDatasetComplete,
+                                                                    std = stdDatasetComplete)])
     # CHECK NORMALIZATION !!!!!!!!
     # Normalize dataset
     validationTransformations = transforms.Compose([
         transforms.Grayscale(3),
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225])])
+        transforms.Normalize(mean = meanDatasetComplete,
+                             std = stdDatasetComplete)])
     return (trainTransformations, validationTransformations)
 
 class SubsetSampler(Sampler):
@@ -78,6 +82,36 @@ class SubsetSampler(Sampler):
         """
         return len(self.indices)
 
+def get_mean_and_std(dataset):
+    """
+    Compute the mean and std value of dataset.
+    :param dataset:
+    :return:
+    """
+    xIndices = dataset.getfilenames()
+    sampler_training = SubsetRandomSampler(xIndices)
+    batch_sampler_training = BatchSampler(sampler_training, batch_size = 1, drop_last=True)
+    data_loader = torch.utils.data.DataLoader(dataset, batch_sampler=batch_sampler_training, num_workers= 5, pin_memory=True)
+
+    #init the mean and std
+    mean = torch.zeros(3)
+    std = torch.zeros(3)
+    print('==> Computing mean and std..')
+    k = 1
+    for inputs, targets in data_loader:
+        #mean and std from the image
+        #print("Processing image: ", k)
+        for i in range(3):
+            mean[i] += inputs[:,i,:,:].mean()
+            std[i] += inputs[:,i,:,:].std()
+        k += 1
+
+    #normalize
+    mean.div_(len(dataset))
+    std.div_(len(dataset))
+    print("mean: " + str(mean))
+    print("std: " + str(std))
+    return mean, std
 
 "Dataset loader for the InBreast dataset"
 class INbreastDataset(Dataset):
@@ -119,8 +153,10 @@ class INbreastDataset(Dataset):
         :param index:
         :return:
         """
-        #print("FILE INDEX ", index)
-        file_name = self.gt_data.loc[self.gt_data['File Name'] == index].path.item()
+
+        element = self.gt_data.loc[self.gt_data['File Name'] == index]
+        #print("ELEM ", element)
+        file_name = element.path.item()
         #print("FILE TO LOAD ", file_name)
         dc = pydicom.dcmread(file_name)
         img_as_arr = dc.pixel_array.astype('float64')

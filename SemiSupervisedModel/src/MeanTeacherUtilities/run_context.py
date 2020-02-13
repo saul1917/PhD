@@ -11,7 +11,7 @@ import threading
 import time
 import logging
 import os
-
+import sys
 from pandas import DataFrame
 from collections import defaultdict
 
@@ -41,9 +41,9 @@ class TrainLog:
     def _record(self, step, col_val_dict):
         with self._log_lock:
             self._log[step].update(col_val_dict)
-            if time.time() - self._last_update_time >= self.INCREMENTAL_UPDATE_TIME:
-                self._last_update_time = time.time()
-                self.save()
+            #if time.time() - self._last_update_time >= self.INCREMENTAL_UPDATE_TIME:
+            self._last_update_time = time.time()
+            self.save()
 
     def _as_dataframe(self):
         with self._log_lock:
@@ -52,24 +52,37 @@ class TrainLog:
 
 class RunContext:
     """Creates directories and files for the run"""
-
-    def __init__(self, runner_file, run_idx, logging2):
-
-        dateInfo = "{date:%Y-%m-%d_%H_%M_%S}".format(
-            date=datetime.now()
-        )
-        runner_name = os.path.basename(runner_file).split(".")[0]
-        self.result_dir = ("../{root}/" + dateInfo + "/").format(root = 'LoggingResults')
+    def __init__(self, runner_file, run_idx, logging):
+        dateInfo = "{date:%Y-%m-%d_%H_%M_%S}".format(date=datetime.now())
+        #runner_name = os.path.basename(runner_file).split(".")[0]
+        self.result_dir = ("../{root}/" + dateInfo + "/").format(root = 'logs')
         #transient dir contains the checkpoints, information logs and training logs
         self.transient_dir = self.result_dir + "logs/"
         os.makedirs(self.result_dir)
         os.makedirs(self.transient_dir)
+        logging.basicConfig(filename=self.transient_dir + "log_" + dateInfo + ".txt", level=logging.INFO, format='%(message)s')
+        self.LOG = logging.getLogger('main')
+        self.init_logger()
         #creating log in log dir
-        print("Creating directories for execution...")
-        print(self.result_dir)
-        print(self.transient_dir)
-        logging2.basicConfig(filename = self.transient_dir + "log_" + dateInfo + ".txt", level=logging.INFO, format='%(message)s')
+        self.LOG.warning("Creating directories for execution: ")
+        self.LOG.warning(self.result_dir)
+        self.LOG.warning(self.transient_dir)
 
+
+    def init_logger(self):
+        """
+        Sets logging details
+        :return:
+        """
+        #self.LOG.setLevel(logging.DEBUG)
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.WARNING)
+        formatter = logging.Formatter('%(asctime)s %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        self.LOG.addHandler(handler)
+
+    def get_logger(self):
+        return self.LOG
 
     def create_train_log(self, name):
         return TrainLog(self.transient_dir, name)

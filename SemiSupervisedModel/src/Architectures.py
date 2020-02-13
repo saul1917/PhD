@@ -89,8 +89,7 @@ class ModelCreatorInBreast:
             for param in alexNetModel.parameters():
                 param.detach_()
 
-        print("Model device ")
-        print(next(alexNetModel.parameters()).is_cuda)
+
         return alexNetModel
 
     def getOptimizer(self, args, model):

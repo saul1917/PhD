@@ -19,16 +19,22 @@ RESULTS_PATH = "/results"
 TEST_SPLIT = 0.2
 #too large might overflow  gpu mem, use a not so small to have good gradient approxs. (32 recom. for Titan V)
 BATCH_SIZE = 32
-WEIGHTS_FILE = "/weights"
-WEIGHTS_BEST_FILE = "weightsBest"
+
 LOG_FILE = "/logs"
 DEFAULT_ERROR_PRINT = 10
 random_seed = 64325564
 
-DEFAULT_EPOCHS = 90
+DEFAULT_EPOCHS = 5
 DEFAULT_LEARNING_RATE = 0.00001
 DEFAULT_MOMENTUM = 0.9
+DEFAULT_NUM_SPLITS = 5
 CHECKPOINT_EPOCHS = 2
+DEFAULT_NAME_CHECKPOINT = 'checkpoint.ckpt'
+DEFAULT_BEST_NAME_CHECKPOINT = 'best.ckpt'
+#%50%, 25%, 20%, 16% 14%
+#  of data unlabeled
+DEFAULT_SPLITS_LABELED = 2
+
 
 LOG = logging.getLogger('main')
 
@@ -97,12 +103,28 @@ def create_parser():
                         metavar='EPOCHS', help='evaluation frequency in epochs, 0 to turn evaluation off (default: 1)')
     parser.add_argument('--print-freq', '-p', default=10, type=int,
                         metavar='N', help='print frequency (default: 10)')
-    parser.add_argument('--resume', default='', type=str, metavar='PATH',
-                        help='path to latest checkpoint (default: none)')
+    parser.add_argument('--resume', default=False, type=bool,
+                        help='Should try to pick latest checkpoint from file?')
+    parser.add_argument('--resumefile', default=DEFAULT_NAME_CHECKPOINT, type=str,
+                        help='name of the latest checkpoint (default: none)')
+
     parser.add_argument('-e', '--evaluate', type=str2bool,
                         help='evaluate model on evaluation set')
     parser.add_argument('--pretrained', dest='pretrained', action='store_true',
                         help='use pre-trained model')
+    parser.add_argument('--k_fold_num', type=int, default=DEFAULT_NUM_SPLITS,
+                        help='Number of folds you want to use for k-fold validation')
+    parser.add_argument('--random_seed', type=int, default=16031997,
+                        help='Random seed to shuffle the dataset')
+
+    parser.add_argument('--best', default=DEFAULT_BEST_NAME_CHECKPOINT, type=str,
+                        help='name of the best checkpoint (default: none)')
+
+    parser.add_argument('--splits_unlabeled', default=DEFAULT_SPLITS_LABELED, type=float,
+                        help='Splits for the unlabeled/labeled data')
+
+    parser.add_argument('--current_fold', default=1, type=float,
+                        help='current fold of the unlabeled dataset')
     return parser
 
 
