@@ -26,7 +26,7 @@ from MeanTeacherUtilities.run_context import *
 from sklearn.model_selection import KFold
 from BreastDatasetLoader import INbreastDataset
 from BreastDatasetLoader import SubsetSampler
-from Architectures import ModelCreatorInBreast
+from ModelCreatorInBreast import ModelCreatorInBreast
 import BreastDatasetLoader as BreastDataset
 from sklearn.model_selection import train_test_split
 
@@ -62,13 +62,15 @@ class ModelController:
         # get alexnet model
         self.modelCreatorInBreast = ModelCreatorInBreast(self.device, self.useCuda)
         # create student model
-        self.studentModel = self.modelCreatorInBreast.getAlexNet()
+        self.studentModel = self.modelCreatorInBreast.getAlexNet(trainTopOnly = False)
         # create teacher model
         self.teacherModel = self.modelCreatorInBreast.getAlexNet(isTeacher=True)
         # only the student must be optimized!
         self.optimizerStudent = self.modelCreatorInBreast.getOptimizer(self.args, self.studentModel)
         #labeled data criterion
         #size_average=False, ignore_index = NO_LABEL
+
+        #default loss
         self.labeledCriterion = nn.CrossEntropyLoss().cuda()
         #unlabeled data criterion, we can use the MSE or Kullback-Leibler loss
         if args.consistency_type == 'mse':
@@ -192,7 +194,7 @@ class ModelController:
         input_file_numbers_all = train_dataset.getfilenames()
         targets_all = train_dataset.getlabels()
         self.LOG.warning("Number splits labeled/unlabeled " + str(self.args.splits_unlabeled))
-        kfolds_labeled_unlabeled = KFold(n_splits=self.args.splits_unlabeled, random_state=52, shuffle=True)
+        kfolds_labeled_unlabeled = KFold(n_splits= int(self.args.splits_unlabeled), random_state=52, shuffle=True)
         kfolds_validation_training = KFold(n_splits = self.args.k_fold_num, random_state=42, shuffle = True)
         self.LOG.warning("Using a k-fold of: "+ str(self.args.k_fold_num))
         #kfolds.get_n_splits(xIndices)
@@ -200,10 +202,12 @@ class ModelController:
         current_fold_labeled = 1
         for labeled_indices, unlabeled_indices in labeled_unlabeled_indices:
             if(current_fold_labeled == self.args.current_fold):
-                self.LOG.info("Split selected for labeled/unlabeled " + str(self.args.current_fold))
                 validation_training_indices_k_folded = kfolds_validation_training.split(labeled_indices)
-
             current_fold_labeled += 1
+
+
+
+        self.LOG.warning("Split selected for labeled/unlabeled " + str(self.args.current_fold))
         percentage_labeled = len(labeled_indices) / len(input_file_numbers_all)
         self.LOG.warning("Number of labeled observations: " + str(len(labeled_indices)) + " proportion: " + str(percentage_labeled))
 
@@ -218,6 +222,10 @@ class ModelController:
         """
         #average metrics counter
         meters = utils.AverageMeterSet()
+
+
+
+
         if(self.args.splits_unlabeled == 0):
             (train_dataset, eval_dataset, validation_training_indices_k_folded, input_file_numbers) = self.create_data_loaders_k_folds()
             self.LOG.warning("Fully supervised training")
@@ -226,6 +234,11 @@ class ModelController:
             (train_dataset, eval_dataset, validation_training_indices_k_folded, input_file_numbers, unlabeled_indices) = self.create_data_loaders_k_folds_unlabeled()
         fold = 1
         accuracies_k_folds_torch = []
+        #balance the loss function
+        if(self.args.weight_balancing):
+            self.LOG.warning("Weight balancing through the loss function on")
+            self.balance_loss(train_dataset)
+
 
         for train_indices, val_indices in validation_training_indices_k_folded:
             #IMPORTANT: The train indices splitted by k-folds are 0-n indices
@@ -251,10 +264,27 @@ class ModelController:
             accuracies_k_folds_torch += [best_accuracy]
             fold += 1
         accuracies_k_folds_torch = torch.tensor(accuracies_k_folds_torch)
-        k_folds_mean = accuracies_k_folds_torch.mean()
-        k_folds_std = accuracies_k_folds_torch.std()
+        k_folds_mean = accuracies_k_folds_torch.mean().item()
+        k_folds_std = accuracies_k_folds_torch.std().item()
         self.LOG.warning("K-folds stats, mean: " + str(k_folds_mean) + " std: " + str(k_folds_std))
-        #self.trainingLog.record("K folds stats", {'Mean': k_folds_mean, 'Std':k_folds_std})
+        self.trainingLog.record("K folds stats", {'Mean': k_folds_mean, 'Std':k_folds_std})
+
+    def balance_loss(self, dataset_train):
+        number_classes = 6
+        y = dataset_train.getlabels()
+
+        #by default float tensor
+        weights = torch.zeros(6)
+        #get the ammount of labels per class
+        for i in range(0, len(y)):
+            label = y[i]
+            weights[label] += 1
+        #normalize
+        weights = weights / torch.sum(weights)
+        print(weights)
+        class_weights = torch.FloatTensor(weights).cuda()
+
+        self.labeledCriterion = nn.CrossEntropyLoss(weight=class_weights).cuda()
 
 
     def train_model_supervised(self, train_loader, eval_loader, k_fold):
@@ -286,7 +316,7 @@ class ModelController:
                 best_accuracy = accuracy
         #save the information of the best
         self.LOG.warning("Best accuracy: " + str(best_accuracy) + " for k-fold: " + str(k_fold))
-        #self.trainingLog.record("Best test acc",{'Accuracy test loss': best_accuracy})
+        self.trainingLog.record("Best_test_acc_k-fold: " + str(k_fold),{'Accuracy test loss': best_accuracy})
         return (best_test_loss, best_accuracy)
 
 

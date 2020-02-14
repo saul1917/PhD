@@ -49,16 +49,18 @@ def getTransformationsInBreast():
                                                 transforms.RandomCrop((224,224)),
                                                transforms.Resize((224, 224)),
                                                transforms.ToTensor(),
-                                               transforms.Normalize(mean = meanDatasetComplete,
-                                                                    std = stdDatasetComplete)])
+                                               transforms.Normalize(mean=meanDatasetComplete, std=stdDatasetComplete)
+                                               ])
+    #Normalize must be last
     # CHECK NORMALIZATION !!!!!!!!
     # Normalize dataset
     validationTransformations = transforms.Compose([
         transforms.Grayscale(3),
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.Normalize(mean = meanDatasetComplete,
-                             std = stdDatasetComplete)])
+        transforms.Normalize(mean=meanDatasetComplete, std=stdDatasetComplete)
+        ])
+    # Normalize must be last
     return (trainTransformations, validationTransformations)
 
 class SubsetSampler(Sampler):

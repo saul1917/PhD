@@ -24,7 +24,7 @@ LOG_FILE = "/logs"
 DEFAULT_ERROR_PRINT = 10
 random_seed = 64325564
 
-DEFAULT_EPOCHS = 5
+DEFAULT_EPOCHS = 50
 DEFAULT_LEARNING_RATE = 0.00001
 DEFAULT_MOMENTUM = 0.9
 DEFAULT_NUM_SPLITS = 5
@@ -33,7 +33,7 @@ DEFAULT_NAME_CHECKPOINT = 'checkpoint.ckpt'
 DEFAULT_BEST_NAME_CHECKPOINT = 'best.ckpt'
 #%50%, 25%, 20%, 16% 14%
 #  of data unlabeled
-DEFAULT_SPLITS_LABELED = 2
+DEFAULT_SPLITS_LABELED = 0
 
 
 LOG = logging.getLogger('main')
@@ -124,7 +124,10 @@ def create_parser():
                         help='Splits for the unlabeled/labeled data')
 
     parser.add_argument('--current_fold', default=1, type=float,
-                        help='current fold of the unlabeled dataset')
+                        help='current fold of the unlabeled dataset, starting from 1')
+
+    parser.add_argument('--weight_balancing', default=True, type=bool,
+                        help='Balance the weights through the loss function')
     return parser
 
 
