@@ -47,6 +47,9 @@ class ModelController:
         :param context:
         :param args:
         """
+        #store and calculate stats of metrics
+        self.test_accuracy = MetricsStatistics("Accuracy")
+        self.test_f1_score = MetricsStatistics("F1 Score")
         self.LOG = context.get_logger()
         self.context = context
         self.args = args
@@ -62,7 +65,7 @@ class ModelController:
         # get alexnet model
         self.modelCreatorInBreast = ModelCreatorInBreast(self.device, self.useCuda)
         # create student model
-        self.studentModel = self.modelCreatorInBreast.getAlexNet(trainTopOnly = False)
+        self.studentModel = self.modelCreatorInBreast.get_vgg16(trainTopOnly = False)
         # create teacher model
         self.teacherModel = self.modelCreatorInBreast.getAlexNet(isTeacher=True)
         # only the student must be optimized!
@@ -127,43 +130,7 @@ class ModelController:
         """
         self.LOG.info("Evaluating the primary model:")
 
-    """def create_data_loaders(self):
-        
-        (trainTransformations, validationTransformations) = BreastDataset.getTransformationsInBreast()
-        #load dataset
-        train_dataset = INbreastDataset(DEFAULT_DATA_PATH, DEFAULT_CSV_PATH, useOneHotVector = False, transform = trainTransformations)
-        self.LOG.info("Dataset loaded from: " + DEFAULT_DATA_PATH)
-        #data_path, csv_path, useOneHotVector = False, transform = None)
 
-        eval_dataset = INbreastDataset(DEFAULT_DATA_PATH, DEFAULT_CSV_PATH, useOneHotVector = True, transform =  validationTransformations)
-        xIndices = train_dataset.getfilenames()
-        self.LOG.warning("Dataset loaded with: " + str(len(xIndices)) + " observations")
-        y = train_dataset.getlabels()
-        # Make the first split (labeled/unlabeled)
-        train_indices, val_indices, train_labels, val_labels = train_test_split(xIndices, y, test_size = TEST_SPLIT, random_state=random_seed)
-        self.LOG.warning("Number of training observations: " + str(len(train_indices)))
-        self.LOG.warning("Number of validation observations: " + str(len(val_indices)))
-        supervised_indices, unsupervised_indices, supervised_labels, unsupervised_labels = train_test_split(train_indices, train_labels, test_size = TEST_SPLIT, random_state=random_seed)
-
-        #assert_exactly_one([args.exclude_unlabeled, args.labeled_batch_size])
-        #only labeleda data
-        if self.args.splits_unlabeled == 0:
-            sampler_training = SubsetRandomSampler(train_indices)
-            sampler_validation = SubsetRandomSampler(val_indices)
-            #??
-            batch_sampler_training = BatchSampler(sampler_training, self.args.batch_size, drop_last=True)
-            batch_sampler_validation = BatchSampler(sampler_validation, self.args.batch_size, drop_last=True)
-        else:
-            #batch sampler for unlabeled and labeled data
-            batch_sampler_training = data.TwoStreamBatchSampler(unsupervised_indices, supervised_indices, self.args.batch_size, self.args.labeled_batch_size)
-
-        #train loader with the defined inbreast dataset
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_sampler=batch_sampler_training,  num_workers = self.args.workers, pin_memory=True)
-        #evalLoader with the defined inbreast dataset
-        #drop_last=False
-        eval_loader = torch.utils.data.DataLoader(eval_dataset, batch_sampler = batch_sampler_validation, num_workers= self.args.workers, pin_memory = True)
-        #return both loaders
-        return train_loader, eval_loader"""
 
     def create_data_loaders_k_folds(self):
         """
@@ -220,12 +187,6 @@ class ModelController:
         Train model using K folds cross validation
         :return:
         """
-        #average metrics counter
-        meters = utils.AverageMeterSet()
-
-
-
-
         if(self.args.splits_unlabeled == 0):
             (train_dataset, eval_dataset, validation_training_indices_k_folded, input_file_numbers) = self.create_data_loaders_k_folds()
             self.LOG.warning("Fully supervised training")
@@ -259,15 +220,13 @@ class ModelController:
             train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = self.args.batch_size, sampler = train_sampler,num_workers= self.args.workers)
             validation_loader = torch.utils.data.DataLoader(eval_dataset, batch_size = self.args.batch_size, sampler = valid_sampler, num_workers = self.args.workers)
             #return the test loss for the k-fold
-            (best_test_loss, best_accuracy) = self.train_model_supervised(train_loader, validation_loader, fold)
+            (best_test_loss, best_accuracy, best_f1_score) = self.train_model_supervised(train_loader, validation_loader, fold)
             #concatenate the best test loss achieved for the k-fold
-            accuracies_k_folds_torch += [best_accuracy]
+            self.test_accuracy.update(best_accuracy)
+            self.test_f1_score.update(best_f1_score)
             fold += 1
-        accuracies_k_folds_torch = torch.tensor(accuracies_k_folds_torch)
-        k_folds_mean = accuracies_k_folds_torch.mean().item()
-        k_folds_std = accuracies_k_folds_torch.std().item()
-        self.LOG.warning("K-folds stats, mean: " + str(k_folds_mean) + " std: " + str(k_folds_std))
-        self.trainingLog.record("K folds stats", {'Mean': k_folds_mean, 'Std':k_folds_std})
+        self.test_f1_score.write_stats_to_log(self.LOG, self.trainingLog)
+        self.test_accuracy.write_stats_to_log(self.LOG, self.trainingLog)
 
     def balance_loss(self, dataset_train):
         number_classes = 6
@@ -294,13 +253,14 @@ class ModelController:
         """
         best_test_loss = 9999
         best_accuracy = 9999
+        best_f1_score = 9999
         for epoch in range(self.args.start_epoch, self.args.epochs):
             startTime = time.time()
             # train for one epoch, using the student (trainable model)
-            (epochLoss, epochAccuracy, epochMAE) = self.trainModelSupervisedEpoch(train_loader, self.studentModel, self.labeledCriterion, self.optimizerStudent, epoch)
+            (epochLoss, epochAccuracy, epochMAE) = self.train_model_supervised_epoch(train_loader, self.studentModel, self.labeledCriterion, self.optimizerStudent, epoch)
             self.LOG.warning("Training epoch in {:.3f} seconds, for k-fold: {}".format((time.time() - startTime), k_fold))
             #is always recommended to use another loss for testing
-            (test_loss, accuracy) = self.test_model_supervised_epoch(self.studentModel, eval_loader, nn.MSELoss().cuda())
+            (test_loss, accuracy, f1_score) = self.test_model_supervised_epoch(self.studentModel, eval_loader, nn.MSELoss().cuda())
 
             #write to the training log, for epoch error information
             row_id = "K-" + str(k_fold) + "__" + "E-" + str(epoch)
@@ -314,13 +274,14 @@ class ModelController:
             if(is_best):
                 best_test_loss = test_loss
                 best_accuracy = accuracy
+                best_f1_score = f1_score
         #save the information of the best
         self.LOG.warning("Best accuracy: " + str(best_accuracy) + " for k-fold: " + str(k_fold))
-        self.trainingLog.record("Best_test_acc_k-fold: " + str(k_fold),{'Accuracy test loss': best_accuracy})
-        return (best_test_loss, best_accuracy)
+        self.trainingLog.record("Best_test_acc_k-fold: " + str(k_fold),{'Accuracy test loss': best_accuracy, 'Best F1 score: ': best_f1_score})
+        return (best_test_loss, best_accuracy, best_f1_score)
 
 
-    def trainModelSupervisedEpoch(self, trainLoader, fullModel, criterion, optimizer, epoch):
+    def train_model_supervised_epoch(self, trainLoader, fullModel, criterion, optimizer, epoch):
         """
         Trains the model using a train loader, from scipy, to ease data splitting
         :param device:
@@ -382,6 +343,9 @@ class ModelController:
         #reduce=True nn.MSELoss().cuda()
         cudnn.benchmark = True
         i = 0
+        #to accumulate results used by the F1 score
+        prediction_numbers_all = torch.zeros(1)
+        target_numbers_all = torch.zeros(1)
         with torch.no_grad():
             for input, target in testLoader:
 
@@ -395,13 +359,22 @@ class ModelController:
                 target_numbers = target.argmax(dim = 1, keepdim = True)
                 #accumulate the number of correct predictions
                 correct += prediction_numbers.eq(target_numbers.view_as(prediction_numbers)).sum().item()
+                #accumulate prediction results to calculate the F1 Score
                 i += 1
+                if(i == 1):
+                    prediction_numbers_all = prediction_numbers
+                    target_numbers_all = target_numbers
+                else:
+                    prediction_numbers_all = torch.cat((prediction_numbers_all, prediction_numbers), 0)
+                    target_numbers_all = torch.cat((target_numbers_all, target_numbers), 0)
+
+        f1_score = calculate_f1_score_batch(prediction_numbers_all.cpu(), target_numbers_all.cpu())
         test_loss_total /= len(testLoader.sampler)
         #make sure is normalized by the lenght of the partition
         accuracy = 100. * correct / len(testLoader.sampler)
-        information = 'Test MSE loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format( test_loss_total, correct,len(testLoader.sampler), accuracy)
+        information = 'Test MSE loss: {:.4f}, Accuracy: {}/{} ({:.0f}%), F1 Score:{:.4f}'.format( test_loss_total, correct,len(testLoader.sampler), accuracy, f1_score)
         self.LOG.warning(information)
-        return (test_loss_total, accuracy)
+        return (test_loss_total, accuracy, f1_score)
 
 def get_mean_stds_dataset():
     transformations = transforms.Compose([

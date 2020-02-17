@@ -6,8 +6,9 @@
 # Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
 
 """Utility functions and classes"""
-
+import torch
 import sys
+from sklearn.metrics import f1_score
 
 
 def parameters_string(module):
@@ -38,6 +39,33 @@ def parameters_string(module):
 def assert_exactly_one(lst):
     assert sum(int(bool(el)) for el in lst) == 1, ", ".join(str(el)
                                                             for el in lst)
+
+class MetricsStatistics:
+    def __init__(self, csv_name):
+        self.csv_name = csv_name
+        self.torch_tensor = torch.tensor([1.0])
+        self.is_empty = True
+
+    def update(self, value):
+        temp_array = torch.tensor([value], dtype = float)
+        if(self.is_empty):
+            self.torch_tensor = temp_array
+            self.is_empty = False
+        else:
+            self.torch_tensor = torch.cat((self.torch_tensor, temp_array ), 0)
+
+    def write_stats_to_log(self, log, training_log):
+        """
+
+        :param log:
+        :param training_log:
+        :return:
+        """
+        mean = torch.mean(self.torch_tensor).item()
+        std = torch.std(self.torch_tensor).item()
+        name_in_csv = "K-folds stats " + self.csv_name
+        log.warning(name_in_csv + ", mean: "+ str(mean) + " std: " + str(std))
+        training_log.record(name_in_csv, {'Mean': mean, 'Std': std})
 
 
 class AverageMeterSet:
@@ -89,6 +117,11 @@ class AverageMeter:
 
     def __format__(self, format):
         return "{self.val:{format}} ({self.avg:{format}})".format(self=self, format=format)
+
+def calculate_f1_score_batch(prediction, targets):
+    #macro':Calculate metrics for each label, and find their unweighted mean. This does not take label imbalance into account.
+    f1_score_data = f1_score(targets, prediction, average="macro")
+    return f1_score_data
 
 
 def export(fn):

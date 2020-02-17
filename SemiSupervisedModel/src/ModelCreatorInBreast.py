@@ -93,6 +93,33 @@ class ModelCreatorInBreast:
 
 
         return alexNetModel
+    
+    def get_vgg16(self, isTeacher = False, preTrained = True, trainTopOnly = False):
+        """
+        :param isTeacher: defines wether is the teacher (with exponential moving average, or not)
+        :return:
+        """
+        vgg16 = models.vgg16(pretrained = preTrained)
+        print(vgg16)
+        # Freeze all layers of pretrained model
+        if(trainTopOnly):
+            print("Train top only, freezing the rest")
+            for param in vgg16.parameters():
+                param.requires_grad = False
+
+        # Reshape last layer, for INBREAST
+        vgg16.classifier[6] = nn.Linear(in_features = 4096, out_features = self.numberClasses)
+        #add a softmax activ. function
+        vgg16.classifier = nn.Sequential(*list(vgg16.classifier) + [nn.Softmax(1)])
+        #Put the model on the Device
+        vgg16.to(self.device)
+        #if is teacher, detach the parameters, to allow its averaging
+        if isTeacher:
+            for param in vgg16.parameters():
+                param.detach_()
+
+
+        return vgg16
 
     def getOptimizer(self, args, model):
         """
