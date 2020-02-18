@@ -34,6 +34,7 @@ from sklearn.model_selection import train_test_split
 DEFAULT_PATH = "/media/Data/saul/InBreastDataset"
 
 DEFAULT_CSV_PATH = DEFAULT_PATH + '/INbreast.csv'
+DEFAULT_CSV_PATH_BINARY = DEFAULT_PATH + '/INbreastBinaryN.csv'
 DEFAULT_DATA_PATH = DEFAULT_PATH + '/AllDICOMs/'
 NO_LABEL = -1
 random_seed = 64325564
@@ -47,6 +48,7 @@ class ModelController:
         :param context:
         :param args:
         """
+        self.labels_csv_file_name = DEFAULT_CSV_PATH
         #store and calculate stats of metrics
         self.test_accuracy = MetricsStatistics("Accuracy")
         self.test_f1_score = MetricsStatistics("F1 Score")
@@ -62,10 +64,17 @@ class ModelController:
         self.trainingLog = context.create_train_log("training")
         self.validationLog = context.create_train_log("validation")
         self.emaValidationLog = context.create_train_log("ema_validation")
+
+        self.is_binary = args.binary_classification
+        if(self.is_binary):
+            self.LOG.warning('Creating a binary model')
+            self.labels_csv_file_name = DEFAULT_CSV_PATH
+        else:
+            self.LOG.warning('Creating a multi-class model')
         # get alexnet model
-        self.modelCreatorInBreast = ModelCreatorInBreast(self.device, self.useCuda)
+        self.modelCreatorInBreast = ModelCreatorInBreast(self.device, self.useCuda, is_binary = self.is_binary)
         # create student model
-        self.studentModel = self.modelCreatorInBreast.get_vgg16(trainTopOnly = False)
+        self.studentModel = self.modelCreatorInBreast.getAlexNet(trainTopOnly = False)
         # create teacher model
         self.teacherModel = self.modelCreatorInBreast.getAlexNet(isTeacher=True)
         # only the student must be optimized!
@@ -138,8 +147,8 @@ class ModelController:
         :return:
         """
         (trainTransformations, validationTransformations) = BreastDataset.getTransformationsInBreast()
-        train_dataset = INbreastDataset(DEFAULT_DATA_PATH, DEFAULT_CSV_PATH, useOneHotVector = False, transform = trainTransformations)
-        eval_dataset = INbreastDataset(DEFAULT_DATA_PATH, DEFAULT_CSV_PATH, useOneHotVector=True, transform=validationTransformations)
+        train_dataset = INbreastDataset(DEFAULT_DATA_PATH, self.labels_csv_file_name, useOneHotVector = False, transform = trainTransformations)
+        eval_dataset = INbreastDataset(DEFAULT_DATA_PATH, self.labels_csv_file_name, useOneHotVector=True, transform=validationTransformations)
         self.LOG.info("Dataset loaded from: " + DEFAULT_DATA_PATH)
         xIndices = train_dataset.getfilenames()
 
@@ -155,8 +164,8 @@ class ModelController:
         :return:
         """
         (trainTransformations, validationTransformations) = BreastDataset.getTransformationsInBreast()
-        train_dataset = INbreastDataset(DEFAULT_DATA_PATH, DEFAULT_CSV_PATH, useOneHotVector = False, transform = trainTransformations)
-        eval_dataset = INbreastDataset(DEFAULT_DATA_PATH, DEFAULT_CSV_PATH, useOneHotVector=True, transform=validationTransformations)
+        train_dataset = INbreastDataset(DEFAULT_DATA_PATH, self.labels_csv_file_name, useOneHotVector = False, transform = trainTransformations)
+        eval_dataset = INbreastDataset(DEFAULT_DATA_PATH, self.labels_csv_file_name, useOneHotVector=True, transform=validationTransformations)
         self.LOG.warning("Dataset loaded from: " + DEFAULT_DATA_PATH)
         input_file_numbers_all = train_dataset.getfilenames()
         targets_all = train_dataset.getlabels()
@@ -230,10 +239,11 @@ class ModelController:
 
     def balance_loss(self, dataset_train):
         number_classes = 6
+        if(self.is_binary):
+            number_classes = 2
         y = dataset_train.getlabels()
-
         #by default float tensor
-        weights = torch.zeros(6)
+        weights = torch.zeros(number_classes)
         #get the ammount of labels per class
         for i in range(0, len(y)):
             label = y[i]
@@ -372,7 +382,7 @@ class ModelController:
         test_loss_total /= len(testLoader.sampler)
         #make sure is normalized by the lenght of the partition
         accuracy = 100. * correct / len(testLoader.sampler)
-        information = 'Test MSE loss: {:.4f}, Accuracy: {}/{} ({:.0f}%), F1 Score:{:.4f}'.format( test_loss_total, correct,len(testLoader.sampler), accuracy, f1_score)
+        information = 'Test MSE loss: {:.4f}, Accuracy: {}/{} ({:.0f}%), F1 Score:{:.4f}\n'.format( test_loss_total, correct,len(testLoader.sampler), accuracy, f1_score)
         self.LOG.warning(information)
         return (test_loss_total, accuracy, f1_score)
 

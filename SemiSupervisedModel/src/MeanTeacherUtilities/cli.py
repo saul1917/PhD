@@ -24,10 +24,11 @@ LOG_FILE = "/logs"
 DEFAULT_ERROR_PRINT = 10
 random_seed = 64325564
 
-DEFAULT_EPOCHS = 1
-DEFAULT_LEARNING_RATE = 0.001
+DEFAULT_EPOCHS = 20
+DEFAULT_LEARNING_RATE = 0.0001
 DEFAULT_MOMENTUM = 0.9
-DEFAULT_NUM_SPLITS = 3
+DEFAULT_NUM_SPLITS = 5
+
 CHECKPOINT_EPOCHS = 2
 DEFAULT_NAME_CHECKPOINT = 'checkpoint.ckpt'
 DEFAULT_BEST_NAME_CHECKPOINT = 'best.ckpt'
@@ -128,6 +129,12 @@ def create_parser():
 
     parser.add_argument('--weight_balancing', default=True, type=bool,
                         help='Balance the weights through the loss function')
+    """
+    BI-RADS readings of 1 and 2 as negative
+    samples. Bi-rads 4, 5 and 6 are positive samples  and  BI-RADS readings of 3 were ignored
+    """
+    parser.add_argument('--binary_classification', default=True, type=bool,
+                        help='Train a binary Bi-rads based classifier')
     return parser
 
 

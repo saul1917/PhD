@@ -120,13 +120,16 @@ class INbreastDataset(Dataset):
     """
     INbresat dataset
     """
-    def __init__(self, data_path, csv_path, useOneHotVector = False, transform = None):
+    def __init__(self, data_path, csv_path, useOneHotVector = False, transform = None, is_binary = True):
         """
         Class constructor
         :param data_path: data path,
         :param csv_path: csv contains the labels
         :param transform:  transforms to use
         """
+        self.number_classes = NUMBER_CLASSES
+
+
         self.useOneHotVector = useOneHotVector
         self.gt_data = pd.read_csv(csv_path, sep=';')
         filenames = []
@@ -148,6 +151,36 @@ class INbreastDataset(Dataset):
         self.le.fit(self.gt_data['label'].values)
         self.categories = self.le.classes_
         self.transform = transform
+        self.is_binary = is_binary
+        if(self.is_binary):
+            self.number_classes = 2
+            self.binarize_inbreast_dataset()
+
+
+    def binarize_inbreast_dataset(self):
+        """
+        Remove the
+        :return:
+        """
+        # ORIGINAL LABELES go from 1 to 6
+        #INBREAST DOES NOT HAVE BI RADS 0
+        #print(self.gt_data['label'].values)
+        #print("Dataset size")
+        #print(self.gt_data.count())
+        # Delete the rows with label "3"
+        self.gt_data = self.gt_data[self.gt_data["label"] != 3]
+        # Put all classes 1 and 2 with label 1, normal findings
+        self.gt_data = self.gt_data.replace(2, 1)
+        # Put all classes 4, 5 and 6 to 2, with abnormal findings
+        self.gt_data = self.gt_data.replace(4, 2)
+        self.gt_data = self.gt_data.replace(5, 2)
+        self.gt_data = self.gt_data.replace(6, 2)
+
+        #print("Dataset size after deletion")
+        #print(self.gt_data.count())
+        #print("SHOWING LABELS AFTER BINARIZATION!!")
+        #print(self.gt_data['label'].values)
+
 
     def __getitem__(self, index):
         """
@@ -174,6 +207,8 @@ class INbreastDataset(Dataset):
         if(self.useOneHotVector):
             label = self.toOneHotVector(label)
 
+
+
         return img_as_img, label
 
     def toOneHotVector(self, target):
@@ -183,7 +218,7 @@ class INbreastDataset(Dataset):
         :return:
         """
         target = torch.tensor([[target]])
-        yOnehot = torch.LongTensor(1, NUMBER_CLASSES)
+        yOnehot = torch.LongTensor(1, self.number_classes)
         yOnehot.zero_()
         yOnehot.scatter_(1, target, 1)
         yOnehotN = yOnehot[0]

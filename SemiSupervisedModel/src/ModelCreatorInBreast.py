@@ -20,9 +20,9 @@ random_seed = 64325564
 epochs_top = 25
 epochs = 100
 LR_TOP = 0.01
-lr = 0.001
+lr = 0.1
 momentum = 0.9
-decay = 0.0005
+decay = 0.005
 
 class ConvolutionalNeuralNetwork(nn.Module):
     """
@@ -59,13 +59,16 @@ class ConvolutionalNeuralNetwork(nn.Module):
 
 
 class ModelCreatorInBreast:
-    def __init__(self, device, useCuda):
+    def __init__(self, device, useCuda, is_binary):
         """
         :param device: Device where to init the model
         """
         self.device = device
         self.useCuda = useCuda
         self.numberClasses = 6
+        #Binary classifier for Bi-rads is also implemented
+        if(is_binary):
+            self.numberClasses = 2
 
     def getAlexNet(self, isTeacher = False, preTrained = True, trainTopOnly = False):
         """
@@ -100,7 +103,7 @@ class ModelCreatorInBreast:
         :return:
         """
         vgg16 = models.vgg16(pretrained = preTrained)
-        print(vgg16)
+        #print(vgg16)
         # Freeze all layers of pretrained model
         if(trainTopOnly):
             print("Train top only, freezing the rest")
