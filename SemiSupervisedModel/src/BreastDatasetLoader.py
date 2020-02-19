@@ -20,6 +20,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from PIL import Image
 import matplotlib
+
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -50,6 +51,7 @@ def getTransformationsInBreast():
                                                transforms.Resize((224, 224)),
                                                transforms.ToTensor(),
                                                transforms.Normalize(mean=meanDatasetComplete, std=stdDatasetComplete)
+
                                                ])
     #Normalize must be last
     # CHECK NORMALIZATION !!!!!!!!

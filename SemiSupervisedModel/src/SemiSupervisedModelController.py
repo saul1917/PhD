@@ -6,7 +6,7 @@ import time
 import math
 import logging
 
-
+from torchvision import datasets, transforms
 import numpy as np
 import torch
 import torch.nn as nn
@@ -48,6 +48,7 @@ class ModelController:
         :param context:
         :param args:
         """
+        self.number_classes = args.number_classes
         self.labels_csv_file_name = DEFAULT_CSV_PATH
         #store and calculate stats of metrics
         self.test_accuracy = MetricsStatistics("Accuracy")
@@ -65,14 +66,14 @@ class ModelController:
         self.validationLog = context.create_train_log("validation")
         self.emaValidationLog = context.create_train_log("ema_validation")
 
-        self.is_binary = args.binary_classification
-        if(self.is_binary):
+
+        if(self.number_classes == 2):
             self.LOG.warning('Creating a binary model')
             self.labels_csv_file_name = DEFAULT_CSV_PATH
         else:
             self.LOG.warning('Creating a multi-class model')
         # get alexnet model
-        self.modelCreatorInBreast = ModelCreatorInBreast(self.device, self.useCuda, is_binary = self.is_binary)
+        self.modelCreatorInBreast = ModelCreatorInBreast(self.device, self.useCuda, number_classes = self.number_classes)
         # create student model
         self.studentModel = self.modelCreatorInBreast.getAlexNet(trainTopOnly = False)
         # create teacher model
@@ -139,6 +140,25 @@ class ModelController:
         """
         self.LOG.info("Evaluating the primary model:")
 
+    def create_data_loaders_k_folds_MNIST(self):
+        """
+        Create dataset and K folds or partitions
+        :return:
+        """
+
+        transformations = transforms.Compose(
+        [transforms.transforms.Resize((32, 32)), transforms.ToTensor()])
+        train_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transformations)
+        eval_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transformations)
+
+        self.LOG.info("MINST Dataset loaded ")
+        xIndices = train_dataset.getfilenames()
+
+        kfolds = KFold(n_splits = self.args.k_fold_num, random_state=42, shuffle = True)
+        self.LOG.info("Using a kfold of "+ str(self.args.k_fold_num))
+        #kfolds.get_n_splits(xIndices)
+        final_indices = kfolds.split(xIndices)
+        return (train_dataset, eval_dataset, final_indices, xIndices)
 
 
     def create_data_loaders_k_folds(self):
@@ -238,12 +258,10 @@ class ModelController:
         self.test_accuracy.write_stats_to_log(self.LOG, self.trainingLog)
 
     def balance_loss(self, dataset_train):
-        number_classes = 6
-        if(self.is_binary):
-            number_classes = 2
+
         y = dataset_train.getlabels()
         #by default float tensor
-        weights = torch.zeros(number_classes)
+        weights = torch.zeros(self.number_classes)
         #get the ammount of labels per class
         for i in range(0, len(y)):
             label = y[i]

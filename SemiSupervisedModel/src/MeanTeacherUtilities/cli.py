@@ -18,15 +18,15 @@ DEFAULT_PATH = "/media/Data/saul/InBreastDataset"
 RESULTS_PATH = "/results"
 TEST_SPLIT = 0.2
 #too large might overflow  gpu mem, use a not so small to have good gradient approxs. (32 recom. for Titan V)
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 
 LOG_FILE = "/logs"
 DEFAULT_ERROR_PRINT = 10
 random_seed = 64325564
 
-DEFAULT_EPOCHS = 20
-DEFAULT_LEARNING_RATE = 0.0001
-DEFAULT_MOMENTUM = 0.9
+DEFAULT_EPOCHS = 100
+DEFAULT_LEARNING_RATE = 0.00001
+DEFAULT_MOMENTUM = 0.5
 DEFAULT_NUM_SPLITS = 5
 
 CHECKPOINT_EPOCHS = 2
@@ -85,7 +85,7 @@ def create_parser():
                         help='momentum')
     parser.add_argument('--nesterov', default=False, type=str2bool,
                         help='use nesterov momentum', metavar='BOOL')
-    parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
+    parser.add_argument('--weight-decay', '--wd', default=1e-7, type=float,
                         metavar='W', help='weight decay (default: 1e-4)')
     parser.add_argument('--ema-decay', default=0.999, type=float, metavar='ALPHA',
                         help='ema variable decay rate (default: 0.999)')
@@ -133,8 +133,8 @@ def create_parser():
     BI-RADS readings of 1 and 2 as negative
     samples. Bi-rads 4, 5 and 6 are positive samples  and  BI-RADS readings of 3 were ignored
     """
-    parser.add_argument('--binary_classification', default=True, type=bool,
-                        help='Train a binary Bi-rads based classifier')
+    parser.add_argument('--number_classes', default=2, type=int,
+                        help='Train a n-nary Bi-rads based classifier')
     return parser
 
 

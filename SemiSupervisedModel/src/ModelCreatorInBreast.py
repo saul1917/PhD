@@ -59,16 +59,15 @@ class ConvolutionalNeuralNetwork(nn.Module):
 
 
 class ModelCreatorInBreast:
-    def __init__(self, device, useCuda, is_binary):
+    def __init__(self, device, useCuda, number_classes = 2):
         """
         :param device: Device where to init the model
         """
         self.device = device
         self.useCuda = useCuda
-        self.numberClasses = 6
+        self.numberClasses = number_classes
         #Binary classifier for Bi-rads is also implemented
-        if(is_binary):
-            self.numberClasses = 2
+
 
     def getAlexNet(self, isTeacher = False, preTrained = True, trainTopOnly = False):
         """
