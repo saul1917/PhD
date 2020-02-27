@@ -140,25 +140,7 @@ class ModelController:
         """
         self.LOG.info("Evaluating the primary model:")
 
-    def create_data_loaders_k_folds_MNIST(self):
-        """
-        Create dataset and K folds or partitions
-        :return:
-        """
 
-        transformations = transforms.Compose(
-        [transforms.transforms.Resize((32, 32)), transforms.ToTensor()])
-        train_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transformations)
-        eval_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transformations)
-
-        self.LOG.info("MINST Dataset loaded ")
-        xIndices = train_dataset.getfilenames()
-
-        kfolds = KFold(n_splits = self.args.k_fold_num, random_state=42, shuffle = True)
-        self.LOG.info("Using a kfold of "+ str(self.args.k_fold_num))
-        #kfolds.get_n_splits(xIndices)
-        final_indices = kfolds.split(xIndices)
-        return (train_dataset, eval_dataset, final_indices, xIndices)
 
 
     def create_data_loaders_k_folds(self):

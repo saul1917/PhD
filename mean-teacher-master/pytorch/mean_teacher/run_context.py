@@ -55,15 +55,13 @@ class RunContext:
     def __init__(self, runner_file, run_idx):
         logging.basicConfig(level=logging.INFO, format='%(message)s')
         runner_name = os.path.basename(runner_file).split(".")[0]
-        self.result_dir = "{root}/{runner_name}/{date:%Y-%m-%d_%H_%M_%S}/{run_idx}".format(
+        self.result_dir = "{root}/{runner_name}/{date:%Y-%m-%d_%H:%M:%S}/{run_idx}".format(
             root='results',
             runner_name=runner_name,
             date=datetime.now(),
             run_idx=run_idx
         )
         self.transient_dir = self.result_dir + "/transient"
-        print("TRYING TO CREATE THIS DIR")
-        print(self.result_dir)
         os.makedirs(self.result_dir)
         os.makedirs(self.transient_dir)
 

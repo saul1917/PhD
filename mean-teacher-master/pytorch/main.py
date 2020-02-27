@@ -47,35 +47,30 @@ def main(context):
 
     dataset_config = datasets.__dict__[args.dataset]()
     num_classes = dataset_config.pop('num_classes')
-    #MODIFY IN HERE
-	#train loader
     train_loader, eval_loader = create_data_loaders(**dataset_config, args=args)
-	#ema is exponential moving average
+
     def create_model(ema=False):
         LOG.info("=> creating {pretrained}{ema}model '{arch}'".format(
             pretrained='pre-trained ' if args.pretrained else '',
             ema='EMA ' if ema else '',
             arch=args.arch))
-		#model factory to build the architecture
+
         model_factory = architectures.__dict__[args.arch]
-		#number of classes is specified
         model_params = dict(pretrained=args.pretrained, num_classes=num_classes)
-        #create actual model
-		model = model_factory(**model_params)
+        model = model_factory(**model_params)
         model = nn.DataParallel(model).cuda()
-		#what?
+
         if ema:
             for param in model.parameters():
                 param.detach_()
 
         return model
-	#student
+
     model = create_model()
-	#teacher
     ema_model = create_model(ema=True)
 
     LOG.info(parameters_string(model))
-	#create the optimizer
+
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay,
@@ -190,7 +185,7 @@ def create_data_loaders(train_transformation,
 
     return train_loader, eval_loader
 
-#exponential moving average of the student weights
+
 def update_ema_variables(model, ema_model, alpha, global_step):
     # Use the true average until the exponential average is more correct
     alpha = min(1 - 1 / (global_step + 1), alpha)
@@ -210,24 +205,21 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
         assert False, args.consistency_type
     residual_logit_criterion = losses.symmetric_mse_loss
 
-    
+    meters = AverageMeterSet()
 
     # switch to train mode
-	#Student	
     model.train()
-	#TEACHER?? yes, the exponentially averaged model
     ema_model.train()
 
     end = time.time()
     for i, ((input, ema_input), target) in enumerate(train_loader):
         # measure data loading time
         meters.update('data_time', time.time() - end)
-		#how they adjust the learning rate??
+
         adjust_learning_rate(optimizer, epoch, i, len(train_loader))
         meters.update('lr', optimizer.param_groups[0]['lr'])
-		#input variable 
+
         input_var = torch.autograd.Variable(input)
-		#volatile??
         ema_input_var = torch.autograd.Variable(ema_input, volatile=True)
         target_var = torch.autograd.Variable(target.cuda(async=True))
 
@@ -235,29 +227,22 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
         labeled_minibatch_size = target_var.data.ne(NO_LABEL).sum()
         assert labeled_minibatch_size > 0
         meters.update('labeled_minibatch_size', labeled_minibatch_size)
-		#output mean teacher
+
         ema_model_out = ema_model(ema_input_var)
-		#output student
         model_out = model(input_var)
 
         if isinstance(model_out, Variable):
             assert args.logit_distance_cost < 0
-			#case only one output
-			#output student
             logit1 = model_out
-			#output mean teacher
             ema_logit = ema_model_out
         else:
-			#two outputs per model??? whyyyyy
             assert len(model_out) == 2
             assert len(ema_model_out) == 2
-			#model output in two parts, logit1 and logit2
             logit1, logit2 = model_out
-			#ema_logit is the ema output, the student??
             ema_logit, _ = ema_model_out
-		#weights??
+
         ema_logit = Variable(ema_logit.detach().data, requires_grad=False)
-		#residual logit criterion?????????????
+
         if args.logit_distance_cost >= 0:
             class_logit, cons_logit = logit1, logit2
             res_loss = args.logit_distance_cost * residual_logit_criterion(class_logit, cons_logit) / minibatch_size
@@ -275,7 +260,6 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
         if args.consistency:
             consistency_weight = get_current_consistency_weight(epoch)
             meters.update('cons_weight', consistency_weight)
-			#consistency between the teacher and the student??
             consistency_loss = consistency_weight * consistency_criterion(cons_logit, ema_logit) / minibatch_size
             meters.update('cons_loss', consistency_loss.data[0])
         else:
@@ -303,7 +287,6 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
         loss.backward()
         optimizer.step()
         global_step += 1
-		#UPDATE THE TEACHER WEIGHTS
         update_ema_variables(model, ema_model, args.ema_decay, global_step)
 
         # measure elapsed time
