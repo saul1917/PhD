@@ -84,6 +84,24 @@ class AverageMeterSet:
         for meter in self.meters.values():
             meter.reset()
 
+
+
+    def write_csv_row_testing(self, training_log, epoch, total_observations):
+        row_id = "E-" + str(epoch)
+        sums = self.sums()
+        averages = self.averages()
+
+        accuracy = 100. * sums["Corrects/sum"].item() / total_observations
+        training_log.record(row_id, {'Epoch_Testing_accuracy': accuracy, 'Corrects_Testing': sums["Corrects/sum"].item(), "Test_MAE":averages["MAE_loss/avg"]})
+
+    def write_csv_row_training(self, training_log, epoch):
+        row_id = "E-" + str(epoch)
+        sums = self.sums()
+        train_loss_epoch_sum = sums["loss/sum"]
+        consistency_loss_epoch_sum = sums["cons_loss/sum"]
+        training_log.record(row_id, {'Epoch_Training_loss': train_loss_epoch_sum, 'Consistency_training_loss':consistency_loss_epoch_sum})
+
+
     def values(self, postfix=''):
         return {name + postfix: meter.val for name, meter in self.meters.items()}
 
@@ -142,3 +160,8 @@ def export(fn):
 
 def parameter_count(module):
     return sum(int(param.numel()) for param in module.parameters())
+
+
+def write_csv_row_final_results(training_log, labels_batch, highest_testing_accuracy, lowest_mae):
+    row_id = "LB_" + str(labels_batch)
+    training_log.record(row_id, {'Highest_Testing_accuracy': highest_testing_accuracy, 'Lowest_MAE': lowest_mae})

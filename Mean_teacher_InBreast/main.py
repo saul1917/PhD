@@ -61,6 +61,7 @@ class MeanTeacherController():
         self.args = cli.parse_commandline_args()
         self.context = RunContext(logging)
         self.training_log = self.context.create_train_log("training")
+        self.results_all_log = self.context.create_results_all_log("results_all")
         useCuda = torch.cuda.is_available()
         self.device = torch.device("cuda" if useCuda else "cpu")
 
@@ -140,7 +141,7 @@ class MeanTeacherController():
         for epoch in range(self.args.start_epoch, self.args.epochs):
             start_time = time.time()
             # train for one epoch
-            (loss_epoch, epoch_accuracy, epoch_MAE) = self.train_epoch(train_loader, student_model, teacher_model, optimizer, epoch, training_log)
+            (loss_epoch, epoch_accuracy, epoch_MAE) = self.train_epoch(train_loader, student_model, teacher_model, optimizer, epoch)
 
 
 
@@ -148,20 +149,20 @@ class MeanTeacherController():
                 start_time = time.time()
                 logger.info("Evaluating the student model:")
 
-                (MAE_loss, accuracy, mse_loss) = self.test_model_epoch(student_model, eval_loader, nn.MSELoss().cuda(), epoch)
+                (MAE_loss_student, accuracy_student, mse_loss_student) = self.test_model_epoch(student_model, eval_loader, nn.MSELoss().cuda(), epoch)
                 #test_model_epoch(self, model, test_loader, test_loss_function)
 
                 logger.info("Evaluating the teacher model:")
-                (MAE_loss_teacher, accuracy_teacher, mse_loss_teacher) = self.test_model_epoch(student_model, eval_loader, nn.MSELoss().cuda(), epoch)
+                (MAE_loss_teacher, accuracy_teacher, mse_loss_teacher) = self.test_model_epoch(teacher_model, eval_loader, nn.MSELoss().cuda(), epoch)
                 logger.info("--- validation in %s seconds ---" % (time.time() - start_time))
                 is_best = False
-                self.training_log.record(row_id, {'Epoch_Test_MAE_loss': MAE_loss})
-                if(MAE_loss < best_test_loss):
-                    best_test_loss = MAE_loss
-                    best_mse_score = mse_loss
-                    best_accuracy = accuracy
+                #self.training_log.record(row_id, {'Epoch_Test_MAE_loss': MAE_loss})
+                if(MAE_loss_student < best_test_loss):
+                    best_test_loss = MAE_loss_student
+                    best_mse_score = mse_loss_student
+                    best_accuracy = accuracy_student
                     is_best = True
-                    logger.info("Lowest test loss so far: " + str(MAE_loss) + " and highest accuracy: " + str(accuracy))
+                    logger.info("Lowest test loss so far: {:.4f} \t and highest accuracy: {:.4f}".format(MAE_loss_student, accuracy_student))
 
 
             if self.args.checkpoint_epochs and (epoch + 1) % self.args.checkpoint_epochs == 0:
@@ -173,7 +174,9 @@ class MeanTeacherController():
                     'ema_state_dict': teacher_model.state_dict(),
                     'optimizer': optimizer.state_dict(),
                 }, is_best, checkpoint_path, epoch + 1)
-            logger.info("Epochs finshed! Highest accuracy: " + str(best_accuracy) + " Lowest test loss: " + str(MAE_loss))
+        logger.info("Epochs finshed! Highest test accuracy: {:.4f} \t Lowest test loss: {:.4f}".format(best_accuracy, best_test_loss))
+        write_csv_row_final_results(self.results_all_log, self.args.labels, best_accuracy, best_test_loss)
+
 
 
 
@@ -291,7 +294,7 @@ class MeanTeacherController():
 
 
 
-    def train_epoch(self, train_loader, student_model, teacher_model, optimizer, epoch, log):
+    def train_epoch(self, train_loader, student_model, teacher_model, optimizer, epoch):
         """
         Actions for training the model in one epoch
         :param train_loader:
@@ -335,7 +338,7 @@ class MeanTeacherController():
             #volatile??
             #Basically, set the input to a network to volatile if you are doing inference only and won't be running backpropagation in order to conserve memory.
             with torch.no_grad():
-                ema_input_var = torch.autograd.Variable(teacher_input)
+                teacher_input_var = torch.autograd.Variable(teacher_input)
             target_var = torch.autograd.Variable(target.cuda())
 
             minibatch_size = len(target_var)
@@ -343,7 +346,7 @@ class MeanTeacherController():
             assert labeled_minibatch_size > 0
             meters.update('labeled_minibatch_size', labeled_minibatch_size)
             #output mean teacher
-            teacher_model_out = teacher_model(ema_input_var)
+            teacher_model_out = teacher_model(teacher_input_var)
             #output student
             student_model_out = student_model(input_var)
 
@@ -414,33 +417,33 @@ class MeanTeacherController():
             meters.update("MAE", mae)
             # amount of correct predictions
             meters.update("Corrects", corrects)
-            if i % self.args.print_freq == 0:
-                logger.info("Epoch: {} \t Batch: {} \t Time: {:.4f}, \t Loss: {:.4f} \t Corrects: {} / {}  \t MAE: {:.4f} ".format(epoch, i,  meters["batch_time"], meters["loss"], meters["Corrects"], self.args.batch_size, meters["MAE"]))
+            if i % self.args.print_freq == 0 and i > 0 :
+                logger.info("Epoch: {} \t Batch: {} \t Time: {:.4f}, \t Loss: {:.4f} \t Corrects: {} / {}  \t MAE: {:.4f} \t Consistency loss: {:.4f}".format(epoch, i,  meters["batch_time"], meters["loss"], meters["Corrects"], self.args.batch_size, meters["MAE"], meters["cons_loss"]))
 
         averages = meters.averages()
         sums = meters.sums()
         #stats for the epoch
         epoch_accuracy = sums["Corrects/sum"].double() / len(train_loader.sampler)
         epoch_MAE = averages["MAE/avg"]
-        train_loss_epoch_norm = sums["loss/sum"]
+        train_loss_epoch_sum = sums["loss/sum"]
         #logging
-        row_id = "K-" + str(0) + "__" + "E-" + str(epoch)
-        self.training_log.record(row_id, {'Epoch_Training_loss': train_loss_epoch_norm})
+        meters.write_csv_row_training(self.training_log, epoch)
         logger.info(
-            "Totals for epoch: {} \t Training accuracy: {:.4f} \t Corrects: {}/{} \t Training MAE {:.4f} \t Training Loss: {:.4f}".format(
-                epoch, epoch_accuracy, sums["Corrects/sum"].int(), len(train_loader.sampler), epoch_MAE, train_loss_epoch_norm))
+            "Totals for epoch: {} \t Training accuracy: {:.4f} \t Corrects: {}/{} \t Training MAE {:.4f} \t Training Loss: {:.4f} \t Consistency loss: {:.4f}".format(
+                epoch, epoch_accuracy, sums["Corrects/sum"].int(), len(train_loader.sampler), epoch_MAE, train_loss_epoch_sum, sums["cons_loss/sum"]))
 
-        return (train_loss_epoch_norm, epoch_accuracy, epoch_MAE)
+        return (train_loss_epoch_sum, epoch_accuracy, epoch_MAE)
 
     def calculate_MAE_accuracy(self, target, class_logit):
         #put in number format
         class_numbers = class_logit.argmax(dim=1, keepdim=True)
-        MAE = torch.dist(target.data.cpu().float(), class_numbers.cpu().float(), 1).item()
+        target_redim = target.view(class_numbers.shape).cpu().float()
+        MAE = torch.dist(target_redim, class_numbers.cpu().float(), 1).item()
+        MAE /= target.size(0)
         #just to be sure, reshape one of the tensors
         equals_vec = class_numbers.cpu() == target.view(class_numbers.shape).cpu()
         corrects = torch.sum(equals_vec)
-        #print("Number of corrects")
-        #print(corrects.item())
+
         return (MAE, corrects)
 
     def test_model_epoch(self, model, test_loader, test_loss_function, epoch):
@@ -456,30 +459,36 @@ class MeanTeacherController():
         model.eval()
         # reduce=True nn.MSELoss().cuda()
         cudnn.benchmark = True
+        total_observations = 0
         #No grad for evalaution
         with torch.no_grad():
-            for input, target in test_loader:
-                input = input[0]
-                target = target.float()
-                input = input.to(self.device)
-                target = target.to(self.device)
-                output = model(input)
+            for inputs, targets in test_loader:
+                inputs = inputs[0]
+                targets = targets.float()
+                inputs = inputs.to(self.device)
+                targets = targets.to(self.device)
+                output = model(inputs)
                 # sum up batch loss
                 #from logits to number representation
                 prediction_numbers = output.argmax(dim=1, keepdim=True)
                 prediction_numbers = prediction_numbers[:,0]
                 #evaluating test loss
-                local_test_loss = test_loss_function(prediction_numbers, target).item()
+                local_test_loss = test_loss_function(prediction_numbers, targets).item()
                 meters.update("MSE_loss", local_test_loss)
-                (mae, corrects) = self.calculate_MAE_accuracy(target, output)
+                (mae, corrects) = self.calculate_MAE_accuracy(targets, output)
                 meters.update("MAE_loss", mae)
                 meters.update("Corrects", corrects)
+                total_observations += targets.size(0)
 
-        total_observations = len(test_loader.batch_sampler)
+
+
         averages = meters.averages()
         sums = meters.sums()
         accuracy = 100. * sums["Corrects/sum"].item() / total_observations
-        information = 'Epoch: {} Test MSE loss: {:.4f} \t  Accuracy: {}/{} ({:.0f}%) \t MAE:{:.4f}\n'.format(epoch, averages["MSE_loss/avg"], meters["Corrects"], total_observations, accuracy, averages["MAE_loss/avg"])
+        information = 'Epoch: {} \t Testing accuracy: {}/{} ({:.2f}%) \t MAE:{:.4f}\n'.format(epoch, sums["Corrects/sum"].item(), total_observations, accuracy, averages["MAE_loss/avg"])
+        meters.write_csv_row_testing(self.training_log, epoch, total_observations)
+
+
         logger.info(information)
         return (sums["MAE_loss/sum"], accuracy, averages["MSE_loss/avg"])
 
@@ -604,11 +613,6 @@ class MeanTeacherController():
             res.append(correct_k.mul_(100.0 / labeled_minibatch_size))
         return res
 
-def create_data_partitions():
-    dataset_path = "/media/Data/saul/Datasets/Inbreast_folder_per_class_binary/train"
-    percentage_labeled_observations = 0.5
-    BreastDataset.create_labeled_unlabeled_partitions_indices(dataset_path, percentage_labeled_observations)
-
 
 
 
@@ -618,4 +622,5 @@ if __name__ == '__main__':
     mean_teacher_controller = MeanTeacherController()
     #mean_teacher_controller.test_loaders()
     mean_teacher_controller.train_model()
+    #BreastDataset.create_data_partitions()
     #create_data_partitions()

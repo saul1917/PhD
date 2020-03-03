@@ -258,6 +258,21 @@ class INbreastDataset(Dataset):
         """
         return len(self.gt_data)
 
+def create_data_partitions():
+    """
+    Create the data partitions
+    :return:
+    """
+    dataset_path = "/media/Data/saul/Datasets/Inbreast_folder_per_class_binary/train"
+
+    create_labeled_unlabeled_partitions_indices(dataset_path, percentage_labeled_observations = 0.125, num_batches=20, create_dirs=True)
+    create_labeled_unlabeled_partitions_indices(dataset_path, percentage_labeled_observations=0.25, num_batches=20, create_dirs=True)
+    create_labeled_unlabeled_partitions_indices(dataset_path, percentage_labeled_observations=0.5, num_batches=20, create_dirs=True)
+    create_labeled_unlabeled_partitions_indices(dataset_path, percentage_labeled_observations=0.75, num_batches=20, create_dirs=True)
+    create_labeled_unlabeled_partitions_indices(dataset_path, percentage_labeled_observations=0.9, num_batches=20, create_dirs=True)
+
+
+
 def create_labeled_unlabeled_partitions_indices(datasetpath, percentage_labeled_observations, num_batches = 10, create_dirs = False):
 
     dataset = torchvision.datasets.ImageFolder(datasetpath)

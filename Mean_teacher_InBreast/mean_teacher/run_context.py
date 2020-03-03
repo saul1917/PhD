@@ -86,3 +86,6 @@ class RunContext:
 
     def create_train_log(self, name):
         return TrainLog(self.transient_dir, name)
+
+    def create_results_all_log(self,name, directory = "../logs/summary"):
+        return TrainLog(directory, name)
